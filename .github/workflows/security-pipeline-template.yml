@@ -477,7 +477,7 @@ jobs:
       - name: Build Go packages
         if: hashFiles('**/*.go') != ''
         run: go build ./...
-        
+
       # -------------------------------------------------------------------------
       # OWASP DEPENDENCY-CHECK
       # -------------------------------------------------------------------------
@@ -641,7 +641,7 @@ jobs:
       # TFSEC SCAN (Terraform specific)
       # -------------------------------------------------------------------------
       - name: Run tfsec
-        if: hashFiles('**/*.tf') != ''
+        # if: hashFiles('**/*.tf') != ''
         uses: aquasecurity/tfsec-action@v1.0.3
         with:
           soft_fail: false
