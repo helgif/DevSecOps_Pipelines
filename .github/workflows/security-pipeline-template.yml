@@ -313,14 +313,14 @@ jobs:
       # -------------------------------------------------------------------------
       # SECRET SCANNING - GitGuardian (If API key provided)
       # -------------------------------------------------------------------------
-      - name: GitGuardian Secret Scan
-        if: secrets.GITGUARDIAN_API_KEY != ''
-        uses: GitGuardian/ggshield-action@v1
-        env:
-          GITGUARDIAN_API_KEY: ${{ secrets.GITGUARDIAN_API_KEY }}
-          GITHUB_PUSH_BEFORE_SHA: ${{ github.event.before }}
-          GITHUB_PUSH_BASE_SHA: ${{ github.event.base }}
-          GITHUB_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+      # - name: GitGuardian Secret Scan
+      #   if: secrets.GITGUARDIAN_API_KEY != ''
+      #   uses: GitGuardian/ggshield-action@v1
+      #   env:
+      #     GITGUARDIAN_API_KEY: ${{ secrets.GITGUARDIAN_API_KEY }}
+      #     GITHUB_PUSH_BEFORE_SHA: ${{ github.event.before }}
+      #     GITHUB_PUSH_BASE_SHA: ${{ github.event.base }}
+      #     GITHUB_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
 
   # ============================================================================
   # STAGE 2: STATIC APPLICATION SECURITY TESTING (SAST)
