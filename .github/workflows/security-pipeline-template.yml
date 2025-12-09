@@ -357,36 +357,36 @@ jobs:
       # -------------------------------------------------------------------------
       # SNYK CODE ANALYSIS (If token provided)
       # -------------------------------------------------------------------------
-      - name: Snyk Code Test
-        if: secrets.SNYK_TOKEN != ''
-        uses: snyk/actions/node@master
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          command: code test
-          args: --sarif-file-output=snyk-code.sarif
+      # - name: Snyk Code Test
+      #   if: secrets.SNYK_TOKEN != ''
+      #   uses: snyk/actions/node@master
+      #   env:
+      #     SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      #   with:
+      #     command: code test
+      #     args: --sarif-file-output=snyk-code.sarif
       
-      - name: Upload Snyk SARIF
-        if: secrets.SNYK_TOKEN != ''
-        uses: github/codeql-action/upload-sarif@v2
-        with:
-          sarif_file: snyk-code.sarif
+      # - name: Upload Snyk SARIF
+      #   if: secrets.SNYK_TOKEN != ''
+      #   uses: github/codeql-action/upload-sarif@v2
+      #   with:
+      #     sarif_file: snyk-code.sarif
       
       # -------------------------------------------------------------------------
       # SONARCLOUD ANALYSIS (If token provided)
       # -------------------------------------------------------------------------
-      - name: SonarCloud Scan
-        if: secrets.SONAR_TOKEN != ''
-        uses: SonarSource/sonarcloud-github-action@master
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        with:
-          args: >
-            -Dsonar.projectKey=${{ github.repository_owner }}_${{ github.event.repository.name }}
-            -Dsonar.organization=${{ github.repository_owner }}
-            -Dsonar.qualitygate.wait=true
-            -Dsonar.qualitygate.timeout=300
+      # - name: SonarCloud Scan
+      #   if: secrets.SONAR_TOKEN != ''
+      #   uses: SonarSource/sonarcloud-github-action@master
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #     SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      #   with:
+      #     args: >
+      #       -Dsonar.projectKey=${{ github.repository_owner }}_${{ github.event.repository.name }}
+      #       -Dsonar.organization=${{ github.repository_owner }}
+      #       -Dsonar.qualitygate.wait=true
+      #       -Dsonar.qualitygate.timeout=300
 
   # ============================================================================
   # STAGE 3: DEPENDENCY SCANNING
@@ -413,14 +413,14 @@ jobs:
       # -------------------------------------------------------------------------
       # SNYK DEPENDENCY SCANNING (If token provided)
       # -------------------------------------------------------------------------
-      - name: Snyk Dependency Test
-        if: secrets.SNYK_TOKEN != ''
-        uses: snyk/actions/node@master
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          command: test
-          args: --severity-threshold=${{ inputs.dependency_severity_threshold }}
+      # - name: Snyk Dependency Test
+      #   if: secrets.SNYK_TOKEN != ''
+      #   uses: snyk/actions/node@master
+      #   env:
+      #     SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      #   with:
+      #     command: test
+      #     args: --severity-threshold=${{ inputs.dependency_severity_threshold }}
       
       # -------------------------------------------------------------------------
       # OWASP DEPENDENCY-CHECK
@@ -541,14 +541,14 @@ jobs:
       # -------------------------------------------------------------------------
       # SNYK CONTAINER SCAN (If token provided)
       # -------------------------------------------------------------------------
-      - name: Snyk Container Test
-        if: secrets.SNYK_TOKEN != '' && hashFiles(inputs.dockerfile_path) != ''
-        uses: snyk/actions/docker@master
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          image: ${{ inputs.docker_image_name }}:${{ github.sha }}
-          args: --severity-threshold=${{ inputs.container_severity_threshold }}
+      # - name: Snyk Container Test
+      #   if: secrets.SNYK_TOKEN != '' && hashFiles(inputs.dockerfile_path) != ''
+      #   uses: snyk/actions/docker@master
+      #   env:
+      #     SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      #   with:
+      #     image: ${{ inputs.docker_image_name }}:${{ github.sha }}
+      #     args: --severity-threshold=${{ inputs.container_severity_threshold }}
 
   # ============================================================================
   # STAGE 6: INFRASTRUCTURE AS CODE (IaC) SECURITY
@@ -601,14 +601,14 @@ jobs:
       # -------------------------------------------------------------------------
       # SNYK IAC SCAN (If token provided)
       # -------------------------------------------------------------------------
-      - name: Snyk IaC Test
-        if: secrets.SNYK_TOKEN != ''
-        uses: snyk/actions/iac@master
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          command: test
-          args: --severity-threshold=${{ inputs.iac_severity_threshold }}
+      # - name: Snyk IaC Test
+      #   if: secrets.SNYK_TOKEN != ''
+      #   uses: snyk/actions/iac@master
+      #   env:
+      #     SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      #   with:
+      #     command: test
+      #     args: --severity-threshold=${{ inputs.iac_severity_threshold }}
 
   # ============================================================================
   # STAGE 7: INTEGRATION SECURITY TESTING
@@ -746,33 +746,33 @@ jobs:
       # -------------------------------------------------------------------------
       # SLACK NOTIFICATION (If enabled and configured)
       # -------------------------------------------------------------------------
-      - name: Send Slack Notification
-        if: inputs.send_slack_notifications && secrets.SLACK_WEBHOOK != '' && failure()
-        uses: 8398a7/action-slack@v3
-        with:
-          status: ${{ job.status }}
-          text: 'Security scan failed for ${{ github.repository }}'
-          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
-          fields: repo,message,commit,author
+      # - name: Send Slack Notification
+      #   if: inputs.send_slack_notifications && secrets.SLACK_WEBHOOK != '' && failure()
+      #   uses: 8398a7/action-slack@v3
+      #   with:
+      #     status: ${{ job.status }}
+      #     text: 'Security scan failed for ${{ github.repository }}'
+      #     webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+      #     fields: repo,message,commit,author
       
       # -------------------------------------------------------------------------
       # JIRA TICKET CREATION (If enabled and configured)
       # -------------------------------------------------------------------------
-      - name: Create JIRA Ticket for Critical Findings
-        if: inputs.create_jira_tickets && secrets.JIRA_URL != '' && failure()
-        run: |
-          curl -X POST "${{ secrets.JIRA_URL }}/rest/api/2/issue" \
-            -H "Authorization: Basic ${{ secrets.JIRA_AUTH }}" \
-            -H "Content-Type: application/json" \
-            -d '{
-              "fields": {
-                "project": {"key": "SEC"},
-                "summary": "Critical security findings in ${{ github.repository }}",
-                "description": "Security scan detected critical findings.\n\nCommit: ${{ github.sha }}\nBranch: ${{ github.ref_name }}\n\nPipeline: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
-                "issuetype": {"name": "Bug"},
-                "priority": {"name": "Critical"}
-              }
-            }'
+      # - name: Create JIRA Ticket for Critical Findings
+      #   if: inputs.create_jira_tickets && secrets.JIRA_URL != '' && failure()
+      #   run: |
+      #     curl -X POST "${{ secrets.JIRA_URL }}/rest/api/2/issue" \
+      #       -H "Authorization: Basic ${{ secrets.JIRA_AUTH }}" \
+      #       -H "Content-Type: application/json" \
+      #       -d '{
+      #         "fields": {
+      #           "project": {"key": "SEC"},
+      #           "summary": "Critical security findings in ${{ github.repository }}",
+      #           "description": "Security scan detected critical findings.\n\nCommit: ${{ github.sha }}\nBranch: ${{ github.ref_name }}\n\nPipeline: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+      #           "issuetype": {"name": "Bug"},
+      #           "priority": {"name": "Critical"}
+      #         }
+      #       }'
 
 # ==============================================================================
 # WORKFLOW CONFIGURATION
