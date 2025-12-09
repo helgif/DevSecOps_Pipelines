@@ -346,8 +346,8 @@ jobs:
           languages: 'javascript,python,java,go'
           queries: security-and-quality
       
-      - name: Autobuild
-        uses: github/codeql-action/autobuild@v3
+      # - name: Autobuild
+      #   uses: github/codeql-action/autobuild@v3
       
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
