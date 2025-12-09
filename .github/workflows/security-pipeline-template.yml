@@ -423,6 +423,62 @@ jobs:
       #     args: --severity-threshold=${{ inputs.dependency_severity_threshold }}
       
       # -------------------------------------------------------------------------
+      # BUILD (only when language files exist) - ensures dependency-check has artifacts
+      # -------------------------------------------------------------------------
+      - name: Setup Java (if Java detected)
+        if: hashFiles('**/pom.xml') != '' || hashFiles('**/build.gradle') != '' || hashFiles('**/build.gradle.kts') != ''
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: ${{ inputs.java_version }}
+
+      - name: Build Java (Maven)
+        if: hashFiles('**/pom.xml') != ''
+        run: mvn -B -DskipTests package
+
+      - name: Build Java (Gradle)
+        if: hashFiles('**/build.gradle') != '' || hashFiles('**/build.gradle.kts') != ''
+        run: |
+          if [ -f ./gradlew ]; then
+            chmod +x ./gradlew
+            ./gradlew assemble --no-daemon
+          else
+            gradle assemble
+          fi
+
+      - name: Setup Node.js (if Node detected)
+        if: hashFiles('package.json') != ''
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node_version }}
+
+      - name: Install Node dependencies
+        if: hashFiles('package.json') != ''
+        run: npm ci
+
+      - name: Setup Python (if Python detected)
+        if: hashFiles('requirements.txt') != '' || hashFiles('pyproject.toml') != ''
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python_version }}
+
+      - name: Install Python dependencies
+        if: hashFiles('requirements.txt') != ''
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Setup Go (if Go detected)
+        if: hashFiles('**/*.go') != ''
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ inputs.go_version }}
+
+      - name: Build Go packages
+        if: hashFiles('**/*.go') != ''
+        run: go build ./...
+        
+      # -------------------------------------------------------------------------
       # OWASP DEPENDENCY-CHECK
       # -------------------------------------------------------------------------
       - name: OWASP Dependency-Check
