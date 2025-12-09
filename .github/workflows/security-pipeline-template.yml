@@ -1,0 +1,792 @@
+# ============================================================================
+# REUSABLE COMPREHENSIVE SECURITY-ENHANCED CI/CD PIPELINE
+# Platform: GitHub Actions
+# Purpose: Golden template for security scanning across multiple repositories
+# ============================================================================
+#
+# USAGE IN YOUR REPOSITORY:
+# Create .github/workflows/security.yml in your repo:
+#
+# name: Security Pipeline
+# on:
+#   push:
+#     branches: [ main, develop ]
+#   pull_request:
+#     branches: [ main, develop ]
+#
+# jobs:
+#   security:
+#     uses: YOUR-ORG/security-templates/.github/workflows/security-pipeline-template.yml@main
+#     with:
+#       node_version: '18'
+#       python_version: '3.11'
+#       enable_mutation_testing: false
+#       enable_fuzzing: true
+#     secrets:
+#       SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+#       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+#
+# ============================================================================
+
+name: Reusable Security Pipeline
+
+on:
+  workflow_call:
+    inputs:
+      # ========================================================================
+      # LANGUAGE & RUNTIME VERSIONS
+      # ========================================================================
+      node_version:
+        description: 'Node.js version to use'
+        required: false
+        type: string
+        default: '18'
+      
+      python_version:
+        description: 'Python version to use'
+        required: false
+        type: string
+        default: '3.11'
+      
+      java_version:
+        description: 'Java version to use'
+        required: false
+        type: string
+        default: '17'
+      
+      go_version:
+        description: 'Go version to use'
+        required: false
+        type: string
+        default: '1.21'
+      
+      # ========================================================================
+      # SEVERITY THRESHOLDS
+      # ========================================================================
+      sast_severity_threshold:
+        description: 'SAST severity threshold (low, medium, high, critical)'
+        required: false
+        type: string
+        default: 'high'
+      
+      dependency_severity_threshold:
+        description: 'Dependency severity threshold (low, medium, high, critical)'
+        required: false
+        type: string
+        default: 'high'
+      
+      container_severity_threshold:
+        description: 'Container severity threshold (low, medium, high, critical)'
+        required: false
+        type: string
+        default: 'critical'
+      
+      iac_severity_threshold:
+        description: 'IaC severity threshold (low, medium, high, critical)'
+        required: false
+        type: string
+        default: 'high'
+      
+      # ========================================================================
+      # FEATURE FLAGS
+      # ========================================================================
+      enable_mutation_testing:
+        description: 'Enable mutation testing (slow but valuable)'
+        required: false
+        type: boolean
+        default: false
+      
+      enable_fuzzing:
+        description: 'Enable fuzz testing (recommended for public APIs)'
+        required: false
+        type: boolean
+        default: true
+      
+      enable_compliance_scanning:
+        description: 'Enable compliance scanning (required for regulated industries)'
+        required: false
+        type: boolean
+        default: true
+      
+      enable_performance_testing:
+        description: 'Enable performance testing (recommended for production services)'
+        required: false
+        type: boolean
+        default: true
+      
+      enable_drift_detection:
+        description: 'Enable drift detection (recommended for cloud deployments)'
+        required: false
+        type: boolean
+        default: true
+      
+      # ========================================================================
+      # STAGE CONTROL (Enable/Disable entire stages)
+      # ========================================================================
+      skip_pre_commit:
+        description: 'Skip pre-commit security checks'
+        required: false
+        type: boolean
+        default: false
+      
+      skip_sast:
+        description: 'Skip SAST scanning'
+        required: false
+        type: boolean
+        default: false
+      
+      skip_dependency:
+        description: 'Skip dependency scanning'
+        required: false
+        type: boolean
+        default: false
+      
+      skip_container:
+        description: 'Skip container scanning'
+        required: false
+        type: boolean
+        default: false
+      
+      skip_iac:
+        description: 'Skip Infrastructure as Code scanning'
+        required: false
+        type: boolean
+        default: false
+      
+      # ========================================================================
+      # BUILD & DEPLOYMENT CONFIGURATION
+      # ========================================================================
+      docker_image_name:
+        description: 'Docker image name for container scanning'
+        required: false
+        type: string
+        default: 'app'
+      
+      dockerfile_path:
+        description: 'Path to Dockerfile'
+        required: false
+        type: string
+        default: './Dockerfile'
+      
+      terraform_directory:
+        description: 'Path to Terraform directory'
+        required: false
+        type: string
+        default: './terraform'
+      
+      # ========================================================================
+      # NOTIFICATION SETTINGS
+      # ========================================================================
+      send_slack_notifications:
+        description: 'Send Slack notifications on failures'
+        required: false
+        type: boolean
+        default: false
+      
+      create_jira_tickets:
+        description: 'Create JIRA tickets for critical findings'
+        required: false
+        type: boolean
+        default: false
+    
+    secrets:
+      # ========================================================================
+      # SECRET SCANNING TOOLS
+      # ========================================================================
+      GITGUARDIAN_API_KEY:
+        description: 'GitGuardian API key (optional - use TruffleHog if not provided)'
+        required: false
+      
+      # ========================================================================
+      # SAST TOOLS
+      # ========================================================================
+      SNYK_TOKEN:
+        description: 'Snyk authentication token'
+        required: false
+      
+      SONAR_TOKEN:
+        description: 'SonarCloud/SonarQube token'
+        required: false
+      
+      SONAR_HOST_URL:
+        description: 'SonarQube server URL (for self-hosted)'
+        required: false
+      
+      CHECKMARX_URL:
+        description: 'Checkmarx server URL'
+        required: false
+      
+      CHECKMARX_USERNAME:
+        description: 'Checkmarx username'
+        required: false
+      
+      CHECKMARX_PASSWORD:
+        description: 'Checkmarx password'
+        required: false
+      
+      # ========================================================================
+      # CONTAINER SCANNING
+      # ========================================================================
+      DOCKER_USERNAME:
+        description: 'Docker Hub username'
+        required: false
+      
+      DOCKER_PASSWORD:
+        description: 'Docker Hub password/token'
+        required: false
+      
+      # ========================================================================
+      # CLOUD CREDENTIALS
+      # ========================================================================
+      AWS_ACCESS_KEY_ID:
+        description: 'AWS access key for IaC deployment checks'
+        required: false
+      
+      AWS_SECRET_ACCESS_KEY:
+        description: 'AWS secret key for IaC deployment checks'
+        required: false
+      
+      AWS_REGION:
+        description: 'AWS region'
+        required: false
+      
+      # ========================================================================
+      # NOTIFICATION INTEGRATIONS
+      # ========================================================================
+      SLACK_WEBHOOK:
+        description: 'Slack webhook URL for notifications'
+        required: false
+      
+      JIRA_URL:
+        description: 'JIRA instance URL'
+        required: false
+      
+      JIRA_AUTH:
+        description: 'JIRA authentication token (Base64)'
+        required: false
+      
+      # ========================================================================
+      # SECURITY ORCHESTRATION
+      # ========================================================================
+      DEFECTDOJO_URL:
+        description: 'DefectDojo URL'
+        required: false
+      
+      DEFECTDOJO_TOKEN:
+        description: 'DefectDojo API token'
+        required: false
+      
+      DEFECTDOJO_ENGAGEMENT_ID:
+        description: 'DefectDojo engagement ID'
+        required: false
+
+# ==============================================================================
+# PIPELINE JOBS
+# ==============================================================================
+
+jobs:
+  # ============================================================================
+  # STAGE 1: PRE-COMMIT SECURITY CHECKS
+  # ============================================================================
+  pre_commit_security:
+    name: Stage 1 - Pre-Commit Security
+    runs-on: ubuntu-latest
+    if: ${{ !inputs.skip_pre_commit }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      # -------------------------------------------------------------------------
+      # SECRET SCANNING - TruffleHog (Primary)
+      # -------------------------------------------------------------------------
+      - name: TruffleHog Secret Scan
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+          extra_args: --only-verified
+      
+      # -------------------------------------------------------------------------
+      # SECRET SCANNING - GitGuardian (If API key provided)
+      # -------------------------------------------------------------------------
+      - name: GitGuardian Secret Scan
+        if: secrets.GITGUARDIAN_API_KEY != ''
+        uses: GitGuardian/ggshield-action@v1
+        env:
+          GITGUARDIAN_API_KEY: ${{ secrets.GITGUARDIAN_API_KEY }}
+          GITHUB_PUSH_BEFORE_SHA: ${{ github.event.before }}
+          GITHUB_PUSH_BASE_SHA: ${{ github.event.base }}
+          GITHUB_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+
+  # ============================================================================
+  # STAGE 2: STATIC APPLICATION SECURITY TESTING (SAST)
+  # ============================================================================
+  sast_scanning:
+    name: Stage 2 - SAST Scanning
+    runs-on: ubuntu-latest
+    needs: pre_commit_security
+    if: ${{ !inputs.skip_sast }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      # -------------------------------------------------------------------------
+      # CODEQL ANALYSIS
+      # -------------------------------------------------------------------------
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v2
+        with:
+          languages: 'javascript,python,java,go'
+          queries: security-and-quality
+      
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v2
+      
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v2
+        with:
+          category: "/language:multi"
+      
+      # -------------------------------------------------------------------------
+      # SNYK CODE ANALYSIS (If token provided)
+      # -------------------------------------------------------------------------
+      - name: Snyk Code Test
+        if: secrets.SNYK_TOKEN != ''
+        uses: snyk/actions/node@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          command: code test
+          args: --sarif-file-output=snyk-code.sarif
+      
+      - name: Upload Snyk SARIF
+        if: secrets.SNYK_TOKEN != ''
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: snyk-code.sarif
+      
+      # -------------------------------------------------------------------------
+      # SONARCLOUD ANALYSIS (If token provided)
+      # -------------------------------------------------------------------------
+      - name: SonarCloud Scan
+        if: secrets.SONAR_TOKEN != ''
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.projectKey=${{ github.repository_owner }}_${{ github.event.repository.name }}
+            -Dsonar.organization=${{ github.repository_owner }}
+            -Dsonar.qualitygate.wait=true
+            -Dsonar.qualitygate.timeout=300
+
+  # ============================================================================
+  # STAGE 3: DEPENDENCY SCANNING
+  # ============================================================================
+  dependency_scanning:
+    name: Stage 3 - Dependency Scanning
+    runs-on: ubuntu-latest
+    needs: pre_commit_security
+    if: ${{ !inputs.skip_dependency }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      # -------------------------------------------------------------------------
+      # GITHUB DEPENDENCY REVIEW (for PRs)
+      # -------------------------------------------------------------------------
+      - name: Dependency Review
+        if: github.event_name == 'pull_request'
+        uses: actions/dependency-review-action@v3
+        with:
+          fail-on-severity: ${{ inputs.dependency_severity_threshold }}
+      
+      # -------------------------------------------------------------------------
+      # SNYK DEPENDENCY SCANNING (If token provided)
+      # -------------------------------------------------------------------------
+      - name: Snyk Dependency Test
+        if: secrets.SNYK_TOKEN != ''
+        uses: snyk/actions/node@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          command: test
+          args: --severity-threshold=${{ inputs.dependency_severity_threshold }}
+      
+      # -------------------------------------------------------------------------
+      # OWASP DEPENDENCY-CHECK
+      # -------------------------------------------------------------------------
+      - name: OWASP Dependency-Check
+        uses: dependency-check/Dependency-Check_Action@main
+        with:
+          project: ${{ github.event.repository.name }}
+          path: '.'
+          format: 'SARIF'
+          args: >
+            --enableRetired
+            --enableExperimental
+      
+      - name: Upload Dependency-Check SARIF
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: reports/dependency-check-report.sarif
+
+  # ============================================================================
+  # STAGE 4: BUILD & UNIT TESTING
+  # ============================================================================
+  build_security:
+    name: Stage 4 - Build & Unit Tests
+    runs-on: ubuntu-latest
+    needs: [sast_scanning, dependency_scanning]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      # -------------------------------------------------------------------------
+      # NODE.JS BUILD
+      # -------------------------------------------------------------------------
+      - name: Setup Node.js
+        if: hashFiles('package.json') != ''
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node_version }}
+          cache: 'npm'
+      
+      - name: Install Node Dependencies
+        if: hashFiles('package.json') != ''
+        run: npm ci
+      
+      - name: Run Node Tests with Coverage
+        if: hashFiles('package.json') != ''
+        run: npm test -- --coverage --coverageReporters=lcov
+      
+      # -------------------------------------------------------------------------
+      # PYTHON BUILD
+      # -------------------------------------------------------------------------
+      - name: Setup Python
+        if: hashFiles('requirements.txt') != '' || hashFiles('pyproject.toml') != ''
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python_version }}
+          cache: 'pip'
+      
+      - name: Install Python Dependencies
+        if: hashFiles('requirements.txt') != ''
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-cov
+      
+      - name: Run Python Tests with Coverage
+        if: hashFiles('requirements.txt') != ''
+        run: pytest --cov=. --cov-report=xml
+      
+      # -------------------------------------------------------------------------
+      # COVERAGE UPLOAD
+      # -------------------------------------------------------------------------
+      - name: Upload Coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage/lcov.info,./coverage.xml
+          fail_ci_if_error: false
+
+  # ============================================================================
+  # STAGE 5: CONTAINER SECURITY SCANNING
+  # ============================================================================
+  container_scanning:
+    name: Stage 5 - Container Scanning
+    runs-on: ubuntu-latest
+    needs: build_security
+    if: ${{ !inputs.skip_container }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      # -------------------------------------------------------------------------
+      # BUILD DOCKER IMAGE
+      # -------------------------------------------------------------------------
+      - name: Build Docker Image
+        if: hashFiles(inputs.dockerfile_path) != ''
+        run: |
+          docker build -t ${{ inputs.docker_image_name }}:${{ github.sha }} -f ${{ inputs.dockerfile_path }} .
+      
+      # -------------------------------------------------------------------------
+      # TRIVY CONTAINER SCAN
+      # -------------------------------------------------------------------------
+      - name: Run Trivy Vulnerability Scanner
+        if: hashFiles(inputs.dockerfile_path) != ''
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ inputs.docker_image_name }}:${{ github.sha }}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+      
+      - name: Upload Trivy SARIF
+        if: hashFiles(inputs.dockerfile_path) != ''
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: trivy-results.sarif
+      
+      # -------------------------------------------------------------------------
+      # SNYK CONTAINER SCAN (If token provided)
+      # -------------------------------------------------------------------------
+      - name: Snyk Container Test
+        if: secrets.SNYK_TOKEN != '' && hashFiles(inputs.dockerfile_path) != ''
+        uses: snyk/actions/docker@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          image: ${{ inputs.docker_image_name }}:${{ github.sha }}
+          args: --severity-threshold=${{ inputs.container_severity_threshold }}
+
+  # ============================================================================
+  # STAGE 6: INFRASTRUCTURE AS CODE (IaC) SECURITY
+  # ============================================================================
+  iac_security:
+    name: Stage 6 - IaC Security
+    runs-on: ubuntu-latest
+    needs: pre_commit_security
+    if: ${{ !inputs.skip_iac }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      # -------------------------------------------------------------------------
+      # CHECKOV SCAN
+      # -------------------------------------------------------------------------
+      - name: Run Checkov
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: .
+          framework: terraform,cloudformation,kubernetes,dockerfile
+          output_format: sarif
+          output_file_path: checkov.sarif
+          soft_fail: false
+          quiet: true
+      
+      - name: Upload Checkov SARIF
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: checkov.sarif
+      
+      # -------------------------------------------------------------------------
+      # TFSEC SCAN (Terraform specific)
+      # -------------------------------------------------------------------------
+      - name: Run tfsec
+        if: hashFiles('**/*.tf') != ''
+        uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          soft_fail: false
+          format: sarif
+          sarif_file: tfsec.sarif
+      
+      - name: Upload tfsec SARIF
+        if: hashFiles('**/*.tf') != ''
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: tfsec.sarif
+      
+      # -------------------------------------------------------------------------
+      # SNYK IAC SCAN (If token provided)
+      # -------------------------------------------------------------------------
+      - name: Snyk IaC Test
+        if: secrets.SNYK_TOKEN != ''
+        uses: snyk/actions/iac@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          command: test
+          args: --severity-threshold=${{ inputs.iac_severity_threshold }}
+
+  # ============================================================================
+  # STAGE 7: INTEGRATION SECURITY TESTING
+  # ============================================================================
+  integration_security:
+    name: Stage 7 - Integration Security
+    runs-on: ubuntu-latest
+    needs: build_security
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      # -------------------------------------------------------------------------
+      # DAST PLACEHOLDER - Requires running application
+      # -------------------------------------------------------------------------
+      - name: DAST Placeholder
+        run: |
+          echo "Dynamic Application Security Testing (DAST) requires:"
+          echo "1. Deployed application endpoint"
+          echo "2. OWASP ZAP or Burp Suite configuration"
+          echo "3. Authentication configuration"
+          echo ""
+          echo "To enable DAST:"
+          echo "- Deploy app to staging/test environment"
+          echo "- Configure OWASP ZAP Action with target URL"
+          echo "- Set authentication credentials"
+      
+      # -------------------------------------------------------------------------
+      # API SECURITY TESTING
+      # -------------------------------------------------------------------------
+      - name: API Security Placeholder
+        run: |
+          echo "API Security Testing requires:"
+          echo "1. OpenAPI/Swagger specification"
+          echo "2. Running API endpoint"
+          echo "3. Postman/Newman collection for testing"
+
+  # ============================================================================
+  # STAGE 8: FUZZ TESTING (If enabled)
+  # ============================================================================
+  fuzz_testing:
+    name: Stage 8 - Fuzz Testing
+    runs-on: ubuntu-latest
+    needs: build_security
+    if: ${{ inputs.enable_fuzzing }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Fuzz Testing Placeholder
+        run: |
+          echo "Fuzz testing enabled but requires setup:"
+          echo "1. AFL, libFuzzer, or Google OSS-Fuzz integration"
+          echo "2. Fuzz test harness for your application"
+          echo "3. Seed corpus for fuzzing"
+
+  # ============================================================================
+  # STAGE 9: COMPLIANCE SCANNING (If enabled)
+  # ============================================================================
+  compliance_scanning:
+    name: Stage 9 - Compliance Scanning
+    runs-on: ubuntu-latest
+    needs: [sast_scanning, dependency_scanning, iac_security]
+    if: ${{ inputs.enable_compliance_scanning }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Compliance Scanning Placeholder
+        run: |
+          echo "Compliance scanning configured for:"
+          echo "- PCI-DSS compliance checks"
+          echo "- HIPAA compliance validation"
+          echo "- SOC2 controls verification"
+          echo "- GDPR data handling checks"
+          echo ""
+          echo "Configure specific compliance frameworks based on requirements"
+
+  # ============================================================================
+  # STAGE 10: SECURITY REPORTING & METRICS
+  # ============================================================================
+  security_reporting:
+    name: Stage 10 - Security Reporting
+    runs-on: ubuntu-latest
+    needs: [sast_scanning, dependency_scanning, build_security, iac_security, integration_security]
+    if: always()
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      # -------------------------------------------------------------------------
+      # AGGREGATE RESULTS
+      # -------------------------------------------------------------------------
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v3
+        continue-on-error: true
+      
+      - name: Upload All SARIF Results
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: .
+        continue-on-error: true
+      
+      # -------------------------------------------------------------------------
+      # SECURITY METRICS
+      # -------------------------------------------------------------------------
+      - name: Calculate Security Metrics
+        run: |
+          echo "========================================================"
+          echo "Security Scan Summary for ${{ github.repository }}"
+          echo "========================================================"
+          echo "Commit: ${{ github.sha }}"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Triggered by: ${{ github.event_name }}"
+          echo "Timestamp: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+          echo ""
+          echo "Stages executed:"
+          echo "- Pre-commit Security: ${{ !inputs.skip_pre_commit }}"
+          echo "- SAST Scanning: ${{ !inputs.skip_sast }}"
+          echo "- Dependency Scanning: ${{ !inputs.skip_dependency }}"
+          echo "- Container Scanning: ${{ !inputs.skip_container }}"
+          echo "- IaC Security: ${{ !inputs.skip_iac }}"
+          echo "- Fuzz Testing: ${{ inputs.enable_fuzzing }}"
+          echo "- Compliance Scanning: ${{ inputs.enable_compliance_scanning }}"
+          echo ""
+          echo "View detailed findings in GitHub Security tab:"
+          echo "${{ github.server_url }}/${{ github.repository }}/security"
+          echo "========================================================"
+      
+      # -------------------------------------------------------------------------
+      # SLACK NOTIFICATION (If enabled and configured)
+      # -------------------------------------------------------------------------
+      - name: Send Slack Notification
+        if: inputs.send_slack_notifications && secrets.SLACK_WEBHOOK != '' && failure()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          text: 'Security scan failed for ${{ github.repository }}'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+          fields: repo,message,commit,author
+      
+      # -------------------------------------------------------------------------
+      # JIRA TICKET CREATION (If enabled and configured)
+      # -------------------------------------------------------------------------
+      - name: Create JIRA Ticket for Critical Findings
+        if: inputs.create_jira_tickets && secrets.JIRA_URL != '' && failure()
+        run: |
+          curl -X POST "${{ secrets.JIRA_URL }}/rest/api/2/issue" \
+            -H "Authorization: Basic ${{ secrets.JIRA_AUTH }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "fields": {
+                "project": {"key": "SEC"},
+                "summary": "Critical security findings in ${{ github.repository }}",
+                "description": "Security scan detected critical findings.\n\nCommit: ${{ github.sha }}\nBranch: ${{ github.ref_name }}\n\nPipeline: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+                "issuetype": {"name": "Bug"},
+                "priority": {"name": "Critical"}
+              }
+            }'
+
+# ==============================================================================
+# WORKFLOW CONFIGURATION
+# ==============================================================================
+
+# Concurrency control
+concurrency:
+  group: security-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Permissions (least privilege)
+permissions:
+  contents: read
+  security-events: write
+  pull-requests: write
+  issues: write
+  actions: read
